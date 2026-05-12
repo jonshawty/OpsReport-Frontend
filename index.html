@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpsReport — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+  <link rel="stylesheet" href="/assets/css/styles.css" />
+  <script src="/assets/js/config.js"></script>
+  <script src="/assets/js/components/theme.js"></script>
+  <script src="/assets/js/components/toast.js"></script>
+  <script src="/assets/js/api.js"></script>
+</head>
+<body>
+  <main class="login-shell">
+    <section class="login-card fade-in">
+      <div class="login-logo">OR</div>
+      <div style="text-align:center; margin-bottom:1.5rem;">
+        <h1 style="margin:0; font-size:1.4rem; font-weight:600; letter-spacing:-0.02em;">OpsReport</h1>
+        <p class="text-secondary mono" style="margin:.3rem 0 0; font-size:.75rem; letter-spacing:.1em; text-transform:uppercase;">NOC / SRE Operations</p>
+      </div>
+
+      <form id="login-form" autocomplete="off">
+        <label class="mono" style="display:block; font-size:.7rem; color:var(--text-muted); margin-bottom:.35rem; letter-spacing:.1em; text-transform:uppercase;">Email</label>
+        <input id="email" class="input" type="email" placeholder="admin@opsreport.local" required style="margin-bottom:1rem;" />
+
+        <label class="mono" style="display:block; font-size:.7rem; color:var(--text-muted); margin-bottom:.35rem; letter-spacing:.1em; text-transform:uppercase;">Senha</label>
+        <input id="password" class="input" type="password" placeholder="••••••••" required style="margin-bottom:1.5rem;" />
+
+        <button id="btn-login" class="btn btn-primary" type="submit" style="width:100%; justify-content:center;">
+          <span id="login-text">Entrar</span>
+          <span id="login-spinner" class="spinner" style="display:none;"></span>
+        </button>
+      </form>
+
+      <div class="divider"></div>
+
+      <p class="text-muted" style="font-size:.75rem; text-align:center; margin:0;">
+        Credenciais padrão do seed:
+        <br>
+        <code class="mono" style="color:var(--text-secondary);">admin@opsreport.local / admin123</code>
+      </p>
+
+      <button class="btn btn-ghost" id="btn-theme" style="width:100%; justify-content:center; margin-top:1rem;">
+        Alternar tema
+      </button>
+    </section>
+  </main>
+
+  <script>
+    // Se já logado, redireciona
+    if (localStorage.getItem(window.AppConfig.tokenKey)) {
+      location.href = '/dashboard.html';
+    }
+
+    const form = document.getElementById('login-form');
+    const btn = document.getElementById('btn-login');
+    const txt = document.getElementById('login-text');
+    const spin = document.getElementById('login-spinner');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      btn.disabled = true;
+      txt.style.display = 'none';
+      spin.style.display = 'inline-block';
+
+      try {
+        const { token, user } = await Api.login(email, password);
+        localStorage.setItem(window.AppConfig.tokenKey, token);
+        localStorage.setItem(window.AppConfig.userKey, JSON.stringify(user));
+        Toast.success('Login efetuado');
+        setTimeout(() => location.href = '/dashboard.html', 300);
+      } catch (err) {
+        Toast.error(Api.unwrapError(err));
+        btn.disabled = false;
+        txt.style.display = '';
+        spin.style.display = 'none';
+      }
+    });
+
+    document.getElementById('btn-theme').addEventListener('click', () => window.Theme.toggle());
+  </script>
+</body>
+</html>

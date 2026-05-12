@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OpsReport — Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CDN libs -->
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+  <link href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="/assets/css/styles.css" />
+  <script src="/assets/js/config.js"></script>
+  <script src="/assets/js/components/theme.js"></script>
+  <script src="/assets/js/components/toast.js"></script>
+  <script src="/assets/js/components/sidebar.js"></script>
+  <script src="/assets/js/api.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div data-sidebar-mount data-active="processar"></div>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div style="display:flex; align-items:center; gap:1rem;">
+          <button class="btn btn-ghost mobile-menu-btn" id="mobile-menu">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <div class="topbar-title">OpsReport / <span id="page-title">Processar Chamados</span></div>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span class="badge"><span class="status-dot"></span><span id="health-status">checando…</span></span>
+        </div>
+      </header>
+
+      <main class="content" id="content">
+
+        <!-- ============== TAB: PROCESSAR ============== -->
+        <section class="tab-panel active" data-panel="processar">
+          <div class="fade-in" style="display:grid; grid-template-columns: 1fr 320px; gap:1.25rem; margin-bottom:1.25rem;">
+
+            <div class="card">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem;">
+                <h2 style="margin:0; font-size:1rem; font-weight:600;">Colar chamados do Teams</h2>
+                <span class="badge" id="paste-counter">0 chars</span>
+              </div>
+              <textarea id="paste-area" class="textarea" placeholder="Cole aqui os chamados copiados do Microsoft Teams...
+
+Exemplo:
+30/03 - Alert
+#520992: PRD | MOVEL | MSE brux1044 - Realizado o restart da aplicação. Normalizado."></textarea>
+              <div style="display:flex; gap:.5rem; margin-top:.75rem; flex-wrap:wrap;">
+                <button class="btn btn-primary" id="btn-process">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                  Processar Chamados
+                </button>
+                <button class="btn btn-secondary" id="btn-load-sample">Carregar exemplo</button>
+                <button class="btn btn-ghost" id="btn-clear">Limpar</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 style="margin:0 0 .75rem; font-size:.9rem;">Upload de arquivo</h3>
+              <div class="dropzone" id="dropzone">
+                <div class="icon" style="font-size:1.5rem; margin-bottom:.4rem;">⇪</div>
+                <div style="font-size:.875rem;">Solte o arquivo aqui ou clique</div>
+                <div class="text-muted" style="font-size:.75rem; margin-top:.25rem;">TXT • CSV • XLSX (até 5MB)</div>
+                <input type="file" id="file-input" accept=".txt,.csv,.xlsx" hidden />
+              </div>
+              <div id="upload-status" class="text-muted mono" style="font-size:.75rem; margin-top:.6rem; min-height:1rem;"></div>
+            </div>
+          </div>
+
+          <!-- Resultado do parse -->
+          <div id="parse-result" style="display:none;" class="fade-in">
+            <div class="card-elevated" style="margin-bottom:1rem;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                <div>
+                  <div class="mono text-muted" style="font-size:.7rem; letter-spacing:.1em; text-transform:uppercase;">Resultado do parser</div>
+                  <h2 style="margin:.25rem 0 0; font-size:1.25rem;">
+                    <span id="result-count">0</span> chamados extraídos
+                    <span id="result-warnings" class="badge" style="margin-left:.5rem;"></span>
+                  </h2>
+                </div>
+                <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                  <button class="btn btn-secondary" id="btn-toggle-logs">Logs de parsing</button>
+                  <button class="btn btn-secondary" id="btn-export-csv">Exportar CSV</button>
+                  <button class="btn btn-secondary" id="btn-export-xlsx">Exportar XLSX</button>
+                  <button class="btn btn-primary" id="btn-save">Salvar no banco</button>
+                </div>
+              </div>
+              <div id="logs-box" style="display:none; margin-top:1rem; padding:.75rem; background:var(--bg-base); border:1px solid var(--border); border-radius:.5rem; max-height:200px; overflow:auto;"></div>
+            </div>
+
+            <div class="card" style="padding:0; overflow:hidden;">
+              <div id="grid-edit"></div>
+            </div>
+
+            <!-- Painel de Analista Responsável (fora do gridjs para não perder foco) -->
+            <div class="card" style="margin-top:1rem;">
+              <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                <div style="flex:1; min-width:220px;">
+                  <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:.35rem; letter-spacing:.05em; text-transform:uppercase;">Analista Responsável</label>
+                  <input id="analyst-input" class="input" type="text" placeholder="Nome do analista..." style="width:100%;" />
+                </div>
+                <div style="display:flex; gap:.5rem; align-items:flex-end; padding-bottom:2px;">
+                  <button class="btn btn-secondary" id="btn-analyst-all" title="Aplica o nome a todos os chamados">Aplicar a todos</button>
+                </div>
+                <div style="font-size:.75rem; color:var(--text-muted); align-self:flex-end; padding-bottom:6px;" id="analyst-status"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============== TAB: DASHBOARD ============== -->
+        <section class="tab-panel" data-panel="dashboard">
+          <div class="metric-grid stagger" id="metric-grid"></div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-top:1.25rem;">
+            <div class="card">
+              <h3 style="margin:0 0 1rem; font-size:.9rem;">Por sistema</h3>
+              <div style="height:260px;"><canvas id="chart-system"></canvas></div>
+            </div>
+            <div class="card">
+              <h3 style="margin:0 0 1rem; font-size:.9rem;">Por tecnologia</h3>
+              <div style="height:260px;"><canvas id="chart-tech"></canvas></div>
+            </div>
+            <div class="card">
+              <h3 style="margin:0 0 1rem; font-size:.9rem;">Por prioridade</h3>
+              <div style="height:260px;"><canvas id="chart-priority"></canvas></div>
+            </div>
+            <div class="card">
+              <h3 style="margin:0 0 1rem; font-size:.9rem;">Por status</h3>
+              <div style="height:260px;"><canvas id="chart-status"></canvas></div>
+            </div>
+            <div class="card" style="grid-column: 1 / -1;">
+              <h3 style="margin:0 0 1rem; font-size:.9rem;">Tendência (últimos 30 dias)</h3>
+              <div style="height:240px;"><canvas id="chart-trend"></canvas></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============== TAB: CHAMADOS ============== -->
+        <section class="tab-panel" data-panel="tickets">
+          <div class="card" style="margin-bottom:1rem;">
+            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap:.75rem; align-items:end;">
+              <div>
+                <label class="mono" style="font-size:.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; display:block; margin-bottom:.3rem;">Busca geral</label>
+                <input id="f-q" class="input" placeholder="ID, hostname, descrição, sistema..." />
+              </div>
+              <div>
+                <label class="mono" style="font-size:.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; display:block; margin-bottom:.3rem;">Sistema</label>
+                <input id="f-system" class="input" placeholder="ex: MSE" />
+              </div>
+              <div>
+                <label class="mono" style="font-size:.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; display:block; margin-bottom:.3rem;">Hostname</label>
+                <input id="f-host" class="input" placeholder="ex: brux1044" />
+              </div>
+              <div>
+                <label class="mono" style="font-size:.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.08em; display:block; margin-bottom:.3rem;">Data desde</label>
+                <input id="f-date-from" class="input" type="date" />
+              </div>
+              <button class="btn btn-primary" id="btn-search">Pesquisar</button>
+            </div>
+          </div>
+
+          <div class="card" style="padding:0; overflow:hidden;">
+            <div id="grid-list"></div>
+          </div>
+
+          <div style="display:flex; gap:.5rem; margin-top:1rem; justify-content:flex-end;">
+            <button class="btn btn-secondary" id="btn-export-all-csv">Exportar resultado (CSV)</button>
+            <button class="btn btn-secondary" id="btn-export-all-xlsx">Exportar resultado (XLSX)</button>
+          </div>
+        </section>
+
+        <!-- ============== TAB: HISTÓRICO ============== -->
+        <section class="tab-panel" data-panel="historico">
+          <div class="card" style="padding:0; overflow:hidden;">
+            <table class="table-compact">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Origem</th>
+                  <th>Arquivo</th>
+                  <th>Chamados</th>
+                  <th>Erros</th>
+                  <th>Usuário</th>
+                  <th style="width:1px;"></th>
+                </tr>
+              </thead>
+              <tbody id="imports-tbody">
+                <tr><td colspan="7" class="text-muted" style="text-align:center; padding:2rem;">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal de logs/edição -->
+  <script src="/assets/js/parser-ui.js"></script>
+  <script src="/assets/js/tickets-ui.js"></script>
+  <script src="/assets/js/dashboard.js"></script>
+  <script src="/assets/js/history.js"></script>
+  <script src="/assets/js/app.js"></script>
+</body>
+</html>
