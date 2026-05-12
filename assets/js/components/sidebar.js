@@ -24,7 +24,7 @@
           <div class="sidebar-brand-logo">OR</div>
           <div class="sidebar-brand-text">
             OpsReport
-            <small>NOC TOOLKIT</small>
+            <small>MIDDLEWARE N1/N2</small>
           </div>
         </div>
 
